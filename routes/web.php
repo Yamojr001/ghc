@@ -3,6 +3,7 @@
 use App\Http\Controllers\AdminController;
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\PublicController;
+use App\Http\Controllers\StaffController;
 use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
 
@@ -18,6 +19,10 @@ Route::get('/contact', [PublicController::class, 'contact'])->name('contact');
 Route::post('/contact', [PublicController::class, 'submitContact'])->name('contact.submit');
 Route::post('/subscribe', [PublicController::class, 'subscribe'])->name('subscribe');
 
+// Donate page
+Route::get('/donate', [PublicController::class, 'donate'])->name('donate');
+Route::post('/donate', [PublicController::class, 'storeDonation'])->name('donate.store');
+
 // Team page
 Route::get('/team', function () {
     return Inertia::render('Public/About', [
@@ -27,13 +32,27 @@ Route::get('/team', function () {
 
 // Auth protected routes
 Route::get('/dashboard', function () {
-    return redirect('/admin');
+    $user = auth()->user();
+    if ($user->role === 'admin') {
+        return redirect('/admin');
+    } elseif ($user->role === 'staff') {
+        return redirect('/staff');
+    }
+    return redirect('/');
 })->middleware(['auth', 'verified'])->name('dashboard');
 
 Route::middleware('auth')->group(function () {
     Route::get('/profile', [ProfileController::class, 'edit'])->name('profile.edit');
     Route::patch('/profile', [ProfileController::class, 'update'])->name('profile.update');
     Route::delete('/profile', [ProfileController::class, 'destroy'])->name('profile.destroy');
+});
+
+// Staff Routes
+Route::middleware(['auth', 'staff'])->prefix('staff')->group(function () {
+    Route::get('/', [StaffController::class, 'dashboard'])->name('staff.dashboard');
+    Route::get('/distributions', [StaffController::class, 'distributions'])->name('staff.distributions');
+    Route::get('/distributions/create', [StaffController::class, 'createDistribution'])->name('staff.distributions.create');
+    Route::post('/distributions', [StaffController::class, 'storeDistribution'])->name('staff.distributions.store');
 });
 
 // Admin Routes (Admin Only)
@@ -73,6 +92,7 @@ Route::middleware(['auth', 'admin'])->prefix('admin')->group(function () {
     
     // Donations
     Route::get('/donations', [AdminController::class, 'donations'])->name('admin.donations');
+    Route::put('/donations/{donation}/verify', [AdminController::class, 'verifyDonation'])->name('admin.donations.verify');
 });
 
 require __DIR__.'/auth.php';

@@ -303,4 +303,10 @@ class AdminController extends Controller
             'donations' => Donation::latest()->get(),
         ]);
     }
+
+    public function verifyDonation(Donation $donation)
+    {
+        $donation->update(['status' => 'verified']);
+        return back()->with('success', 'Donation verified successfully.');
+    }
 }

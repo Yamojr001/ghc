@@ -1,0 +1,295 @@
+import React, { useEffect, useState } from 'react';
+import { base44 } from '@/api/base44Client';
+import { useQuery } from '@tanstack/react-query';
+import { motion } from 'framer-motion';
+import { 
+  DollarSign, Users, Package, TrendingUp,
+  Clock, CheckCircle, XCircle, AlertCircle,
+  ArrowUpRight, ArrowDownRight
+} from 'lucide-react';
+import { 
+  AreaChart, Area, XAxis, YAxis, CartesianGrid, 
+  Tooltip, ResponsiveContainer, BarChart, Bar
+} from 'recharts';
+import AdminSidebar from '@/components/admin/AdminSidebar';
+import AdminHeader from '@/components/admin/AdminHeader';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Badge } from '@/components/ui/badge';
+
+export default function AdminDashboard() {
+  const [user, setUser] = useState(null);
+
+  useEffect(() => {
+    base44.auth.me().then(setUser).catch(() => {});
+  }, []);
+
+  const { data: donations = [] } = useQuery({
+    queryKey: ['admin-donations'],
+    queryFn: () => base44.entities.Donation.list('-created_date', 100),
+  });
+
+  const { data: distributions = [] } = useQuery({
+    queryKey: ['admin-distributions'],
+    queryFn: () => base44.entities.Distribution.list('-created_date', 100),
+  });
+
+  const { data: expenses = [] } = useQuery({
+    queryKey: ['admin-expenses'],
+    queryFn: () => base44.entities.Expense.list('-created_date', 100),
+  });
+
+  // Calculate stats
+  const verifiedDonations = donations.filter(d => d.status === 'verified');
+  const pendingDonations = donations.filter(d => d.status === 'pending');
+  const totalRaised = verifiedDonations.reduce((acc, d) => acc + (d.amount_usd || 0), 0);
+  const pendingAmount = pendingDonations.reduce((acc, d) => acc + (d.amount_usd || 0), 0);
+  
+  const approvedDistributions = distributions.filter(d => d.status === 'approved');
+  const pendingDistributions = distributions.filter(d => d.status === 'pending');
+  const totalBeneficiaries = approvedDistributions.reduce((acc, d) => acc + (d.beneficiary_count || 0), 0);
+  
+  const approvedExpenses = expenses.filter(e => e.status === 'approved');
+  const totalExpenses = approvedExpenses.reduce((acc, e) => acc + (e.amount_usd || 0), 0);
+
+  // Chart data
+  const last7Days = Array.from({ length: 7 }, (_, i) => {
+    const date = new Date();
+    date.setDate(date.getDate() - (6 - i));
+    return {
+      date: date.toLocaleDateString('en-US', { weekday: 'short' }),
+      donations: donations.filter(d => {
+        const dDate = new Date(d.created_date);
+        return dDate.toDateString() === date.toDateString() && d.status === 'verified';
+      }).reduce((acc, d) => acc + (d.amount_usd || 0), 0),
+    };
+  });
+
+  const stats = [
+    {
+      title: 'Total Raised',
+      value: `$${totalRaised.toLocaleString()}`,
+      change: '+12%',
+      changeType: 'positive',
+      icon: DollarSign,
+      color: 'bg-emerald-500'
+    },
+    {
+      title: 'Pending Verification',
+      value: `$${pendingAmount.toLocaleString()}`,
+      change: `${pendingDonations.length} donations`,
+      changeType: 'neutral',
+      icon: Clock,
+      color: 'bg-amber-500'
+    },
+    {
+      title: 'Beneficiaries',
+      value: totalBeneficiaries.toLocaleString(),
+      change: '+8%',
+      changeType: 'positive',
+      icon: Users,
+      color: 'bg-blue-500'
+    },
+    {
+      title: 'Total Expenses',
+      value: `$${totalExpenses.toLocaleString()}`,
+      change: 'On budget',
+      changeType: 'neutral',
+      icon: Package,
+      color: 'bg-purple-500'
+    },
+  ];
+
+  return (
+    <div className="flex min-h-screen bg-gray-100">
+      <AdminSidebar user={user} />
+      
+      <main className="flex-1">
+        <AdminHeader 
+          title="Dashboard" 
+          subtitle="Overview of your organization's performance"
+        />
+        
+        <div className="p-6">
+          {/* Stats Grid */}
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+            {stats.map((stat, index) => (
+              <motion.div
+                key={stat.title}
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: index * 0.1 }}
+              >
+                <Card>
+                  <CardContent className="p-6">
+                    <div className="flex items-start justify-between">
+                      <div>
+                        <p className="text-sm text-gray-500 mb-1">{stat.title}</p>
+                        <p className="text-2xl font-bold text-gray-900">{stat.value}</p>
+                        <p className={`text-sm mt-1 flex items-center gap-1 ${
+                          stat.changeType === 'positive' ? 'text-emerald-600' :
+                          stat.changeType === 'negative' ? 'text-red-600' :
+                          'text-gray-500'
+                        }`}>
+                          {stat.changeType === 'positive' && <ArrowUpRight className="w-3 h-3" />}
+                          {stat.changeType === 'negative' && <ArrowDownRight className="w-3 h-3" />}
+                          {stat.change}
+                        </p>
+                      </div>
+                      <div className={`${stat.color} p-3 rounded-xl`}>
+                        <stat.icon className="w-6 h-6 text-white" />
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              </motion.div>
+            ))}
+          </div>
+
+          {/* Charts Row */}
+          <div className="grid lg:grid-cols-2 gap-6 mb-8">
+            {/* Donations Chart */}
+            <Card>
+              <CardHeader>
+                <CardTitle>Donations (Last 7 Days)</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <ResponsiveContainer width="100%" height={300}>
+                  <AreaChart data={last7Days}>
+                    <defs>
+                      <linearGradient id="colorDonations" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="5%" stopColor="#f43f5e" stopOpacity={0.3}/>
+                        <stop offset="95%" stopColor="#f43f5e" stopOpacity={0}/>
+                      </linearGradient>
+                    </defs>
+                    <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
+                    <XAxis dataKey="date" stroke="#6b7280" />
+                    <YAxis stroke="#6b7280" tickFormatter={(v) => `$${v}`} />
+                    <Tooltip 
+                      formatter={(v) => [`$${v}`, 'Donations']}
+                      contentStyle={{ borderRadius: '8px', border: '1px solid #e5e7eb' }}
+                    />
+                    <Area 
+                      type="monotone" 
+                      dataKey="donations" 
+                      stroke="#f43f5e" 
+                      strokeWidth={2}
+                      fillOpacity={1} 
+                      fill="url(#colorDonations)" 
+                    />
+                  </AreaChart>
+                </ResponsiveContainer>
+              </CardContent>
+            </Card>
+
+            {/* Pending Actions */}
+            <Card>
+              <CardHeader>
+                <CardTitle>Pending Actions</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-4">
+                  <div className="flex items-center justify-between p-4 bg-amber-50 rounded-xl">
+                    <div className="flex items-center gap-3">
+                      <div className="w-10 h-10 rounded-full bg-amber-100 flex items-center justify-center">
+                        <DollarSign className="w-5 h-5 text-amber-600" />
+                      </div>
+                      <div>
+                        <p className="font-medium text-gray-900">Pending Donations</p>
+                        <p className="text-sm text-gray-500">Awaiting verification</p>
+                      </div>
+                    </div>
+                    <Badge variant="secondary" className="bg-amber-100 text-amber-700">
+                      {pendingDonations.length}
+                    </Badge>
+                  </div>
+
+                  <div className="flex items-center justify-between p-4 bg-blue-50 rounded-xl">
+                    <div className="flex items-center gap-3">
+                      <div className="w-10 h-10 rounded-full bg-blue-100 flex items-center justify-center">
+                        <Package className="w-5 h-5 text-blue-600" />
+                      </div>
+                      <div>
+                        <p className="font-medium text-gray-900">Pending Distributions</p>
+                        <p className="text-sm text-gray-500">Awaiting approval</p>
+                      </div>
+                    </div>
+                    <Badge variant="secondary" className="bg-blue-100 text-blue-700">
+                      {pendingDistributions.length}
+                    </Badge>
+                  </div>
+
+                  <div className="flex items-center justify-between p-4 bg-purple-50 rounded-xl">
+                    <div className="flex items-center gap-3">
+                      <div className="w-10 h-10 rounded-full bg-purple-100 flex items-center justify-center">
+                        <AlertCircle className="w-5 h-5 text-purple-600" />
+                      </div>
+                      <div>
+                        <p className="font-medium text-gray-900">Pending Expenses</p>
+                        <p className="text-sm text-gray-500">Awaiting approval</p>
+                      </div>
+                    </div>
+                    <Badge variant="secondary" className="bg-purple-100 text-purple-700">
+                      {expenses.filter(e => e.status === 'pending').length}
+                    </Badge>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+
+          {/* Recent Activity */}
+          <Card>
+            <CardHeader>
+              <CardTitle>Recent Donations</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-4">
+                {donations.slice(0, 5).map((donation) => (
+                  <div key={donation.id} className="flex items-center justify-between p-4 border rounded-xl">
+                    <div className="flex items-center gap-4">
+                      <div className={`w-10 h-10 rounded-full flex items-center justify-center ${
+                        donation.status === 'verified' ? 'bg-emerald-100' :
+                        donation.status === 'pending' ? 'bg-amber-100' : 'bg-red-100'
+                      }`}>
+                        {donation.status === 'verified' ? (
+                          <CheckCircle className="w-5 h-5 text-emerald-600" />
+                        ) : donation.status === 'pending' ? (
+                          <Clock className="w-5 h-5 text-amber-600" />
+                        ) : (
+                          <XCircle className="w-5 h-5 text-red-600" />
+                        )}
+                      </div>
+                      <div>
+                        <p className="font-medium text-gray-900">
+                          {donation.is_anonymous ? 'Anonymous Donor' : donation.donor_name}
+                        </p>
+                        <p className="text-sm text-gray-500">
+                          {donation.donor_email} • {donation.payment_method}
+                        </p>
+                      </div>
+                    </div>
+                    <div className="text-right">
+                      <p className="font-bold text-gray-900">
+                        ${donation.amount_usd?.toFixed(2)}
+                      </p>
+                      <Badge 
+                        variant="secondary"
+                        className={
+                          donation.status === 'verified' ? 'bg-emerald-100 text-emerald-700' :
+                          donation.status === 'pending' ? 'bg-amber-100 text-amber-700' :
+                          'bg-red-100 text-red-700'
+                        }
+                      >
+                        {donation.status}
+                      </Badge>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      </main>
+    </div>
+  );
+}

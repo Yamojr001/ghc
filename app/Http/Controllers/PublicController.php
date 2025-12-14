@@ -64,7 +64,12 @@ class PublicController extends Controller
 
     public function donors()
     {
-        $donations = Donation::where('status', 'verified')->latest()->take(20)->get();
+        $donations = Donation::where('status', 'verified')
+            ->where('is_anonymous', false)
+            ->latest()
+            ->take(20)
+            ->get();
+            
         $topDonors = Donation::where('status', 'verified')
             ->where('is_anonymous', false)
             ->selectRaw('donor_name, donor_country, SUM(amount_usd) as total')
@@ -77,9 +82,9 @@ class PublicController extends Controller
             'donors' => $donations,
             'topDonors' => $topDonors,
             'donationStats' => [
-                'gold' => Donation::where('status', 'verified')->where('amount_usd', '>=', 1000)->count(),
-                'silver' => Donation::where('status', 'verified')->whereBetween('amount_usd', [500, 999])->count(),
-                'bronze' => Donation::where('status', 'verified')->whereBetween('amount_usd', [100, 499])->count(),
+                'gold' => Donation::where('status', 'verified')->where('is_anonymous', false)->where('amount_usd', '>=', 1000)->count(),
+                'silver' => Donation::where('status', 'verified')->where('is_anonymous', false)->whereBetween('amount_usd', [500, 999])->count(),
+                'bronze' => Donation::where('status', 'verified')->where('is_anonymous', false)->whereBetween('amount_usd', [100, 499])->count(),
             ],
         ]);
     }
@@ -133,5 +138,36 @@ class PublicController extends Controller
         Subscriber::create($validated);
 
         return back()->with('success', 'Thank you for subscribing!');
+    }
+
+    public function donate()
+    {
+        return Inertia::render('Public/Donate', [
+            'programs' => Program::where('is_active', true)->get(),
+        ]);
+    }
+
+    public function storeDonation(Request $request)
+    {
+        $validated = $request->validate([
+            'donor_name' => 'required|string|max:255',
+            'donor_email' => 'required|email|max:255',
+            'donor_country' => 'nullable|string|max:255',
+            'amount' => 'required|numeric|min:1',
+            'currency' => 'required|string|max:10',
+            'amount_usd' => 'required|numeric|min:0',
+            'donation_type' => 'required|in:one_time,monthly',
+            'category' => 'nullable|string|max:100',
+            'payment_method' => 'required|string|max:50',
+            'is_anonymous' => 'boolean',
+            'message' => 'nullable|string',
+        ]);
+
+        $validated['status'] = 'pending';
+        $validated['is_recurring'] = $validated['donation_type'] === 'monthly';
+
+        Donation::create($validated);
+
+        return back()->with('success', 'Thank you for your donation! We will verify it shortly.');
     }
 }
