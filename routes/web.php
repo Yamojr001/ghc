@@ -79,16 +79,19 @@ Route::middleware(['auth', 'admin'])->prefix('admin')->group(function () {
     Route::get('/blog-posts', [AdminController::class, 'blogPosts'])->name('admin.blog-posts');
     Route::get('/blog-posts/create', [AdminController::class, 'createBlogPost'])->name('admin.blog-posts.create');
     Route::post('/blog-posts', [AdminController::class, 'storeBlogPost'])->name('admin.blog-posts.store');
+    Route::delete('/blog-posts/{blogPost}', [AdminController::class, 'destroyBlogPost'])->name('admin.blog-posts.destroy');
     
     // Gallery
     Route::get('/gallery', [AdminController::class, 'gallery'])->name('admin.gallery');
     Route::get('/gallery/create', [AdminController::class, 'createGalleryItem'])->name('admin.gallery.create');
     Route::post('/gallery', [AdminController::class, 'storeGalleryItem'])->name('admin.gallery.store');
+    Route::delete('/gallery/{galleryItem}', [AdminController::class, 'destroyGalleryItem'])->name('admin.gallery.destroy');
     
     // Programs
     Route::get('/programs', [AdminController::class, 'programs'])->name('admin.programs');
     Route::get('/programs/create', [AdminController::class, 'createProgram'])->name('admin.programs.create');
     Route::post('/programs', [AdminController::class, 'storeProgram'])->name('admin.programs.store');
+    Route::delete('/programs/{program}', [AdminController::class, 'destroyProgram'])->name('admin.programs.destroy');
     
     // Donations
     Route::get('/donations', [AdminController::class, 'donations'])->name('admin.donations');

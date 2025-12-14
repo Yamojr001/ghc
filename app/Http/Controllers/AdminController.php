@@ -232,6 +232,12 @@ class AdminController extends Controller
         return redirect()->route('admin.blog-posts')->with('success', 'Blog post created successfully.');
     }
 
+    public function destroyBlogPost(BlogPost $blogPost)
+    {
+        $blogPost->delete();
+        return redirect()->route('admin.blog-posts')->with('success', 'Blog post deleted successfully.');
+    }
+
     // Gallery
     public function gallery()
     {
@@ -258,6 +264,12 @@ class AdminController extends Controller
         GalleryItem::create($validated);
 
         return redirect()->route('admin.gallery')->with('success', 'Gallery item created successfully.');
+    }
+
+    public function destroyGalleryItem(GalleryItem $galleryItem)
+    {
+        $galleryItem->delete();
+        return redirect()->route('admin.gallery')->with('success', 'Gallery item deleted successfully.');
     }
 
     // Programs
@@ -294,6 +306,12 @@ class AdminController extends Controller
         Program::create($validated);
 
         return redirect()->route('admin.programs')->with('success', 'Program created successfully.');
+    }
+
+    public function destroyProgram(Program $program)
+    {
+        $program->delete();
+        return redirect()->route('admin.programs')->with('success', 'Program deleted successfully.');
     }
 
     // Donations
